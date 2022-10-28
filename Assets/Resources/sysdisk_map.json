@@ -1,0 +1,86 @@
+{
+  "defaults/color.ms": {
+    "FullPath": "Assets/Resources/sysdisk/defaults/color.ms",
+    "ResourcesPath": "sysdisk/defaults/color"
+  },
+  "lib/chars.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/chars.ms",
+    "ResourcesPath": "sysdisk/lib/chars"
+  },
+  "lib/grfon.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/grfon.ms",
+    "ResourcesPath": "sysdisk/lib/grfon"
+  },
+  "lib/json.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/json.ms",
+    "ResourcesPath": "sysdisk/lib/json"
+  },
+  "lib/listUtil.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/listUtil.ms",
+    "ResourcesPath": "sysdisk/lib/listUtil"
+  },
+  "lib/mapUtil.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/mapUtil.ms",
+    "ResourcesPath": "sysdisk/lib/mapUtil"
+  },
+  "lib/mathUtil.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/mathUtil.ms",
+    "ResourcesPath": "sysdisk/lib/mathUtil"
+  },
+  "lib/matrixUtil.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/matrixUtil.ms",
+    "ResourcesPath": "sysdisk/lib/matrixUtil"
+  },
+  "lib/qa.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/qa.ms",
+    "ResourcesPath": "sysdisk/lib/qa"
+  },
+  "lib/stringUtil.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/stringUtil.ms",
+    "ResourcesPath": "sysdisk/lib/stringUtil"
+  },
+  "lib/textUtil.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/textUtil.ms",
+    "ResourcesPath": "sysdisk/lib/textUtil"
+  },
+  "lib/tsv.ms": {
+    "FullPath": "Assets/Resources/sysdisk/lib/tsv.ms",
+    "ResourcesPath": "sysdisk/lib/tsv"
+  },
+  "startup.ms": {
+    "FullPath": "Assets/Resources/sysdisk/startup.ms",
+    "ResourcesPath": "sysdisk/startup"
+  },
+  "test/eval.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/eval.ms",
+    "ResourcesPath": "sysdisk/test/eval"
+  },
+  "test/fs.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/fs.ms",
+    "ResourcesPath": "sysdisk/test/fs"
+  },
+  "test/import/index.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/import/index.ms",
+    "ResourcesPath": "sysdisk/test/import/index"
+  },
+  "test/import/liba.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/import/liba.ms",
+    "ResourcesPath": "sysdisk/test/import/liba"
+  },
+  "test/import/libb.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/import/libb.ms",
+    "ResourcesPath": "sysdisk/test/import/libb"
+  },
+  "test/import/libc/index.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/import/libc/index.ms",
+    "ResourcesPath": "sysdisk/test/import/libc/index"
+  },
+  "test/index.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/index.ms",
+    "ResourcesPath": "sysdisk/test/index"
+  },
+  "_map.json": {
+    "FullPath": "Assets/Resources/sysdisk_map.json",
+    "ResourcesPath": "sysdisk_map"
+  }
+}
