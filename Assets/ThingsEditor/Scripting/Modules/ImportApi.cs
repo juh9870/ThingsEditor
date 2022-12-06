@@ -30,10 +30,12 @@ namespace ThingsEditor.Scripting.Modules
         private static ValMap importModule;
         private static ValMap fromClass;
 
+        private static readonly Dictionary<string, Dictionary<string, ValFunction>> LazyImportIntrinsicCache = new();
         private static readonly Dictionary<string, Function> CodeCache = new();
-        private static readonly Dictionary<string, string> LibraryPathCache = new();
+        private static readonly HashSet<string> ValidLibrariesCache = new();
         private static readonly Dictionary<string, Value> ImportsCache = new();
         private static readonly Dictionary<string, string> LibrariesMap = new();
+        private static readonly HashSet<string> ImportsHistory = new();
 
         [ApiModuleInitializer]
         private static void Initialize()
@@ -47,9 +49,10 @@ namespace ThingsEditor.Scripting.Modules
         {
             if (importModule != null) return importModule;
             return importModule = BuildClass(
-                VarargMethod(DefaultInvocation.ToString(), 32, ImportFunction(false, ImportModule),
+                VarargMethod(DefaultInvocation.ToString(), 32, ImportFunction(false, false, ImportModule),
                     globalIntrinsicName: "import"),
-                VarargMethod("fresh", 32, ImportFunction(true, null)),
+                VarargMethod("fresh", 32, ImportFunction(true, false, null)),
+                VarargMethod("lazy", 32, ImportFunction(false, true, null)),
                 Method("export", ExportFunc, "export").Params("target", "force"),
                 Method("ensureFresh", EnsureFreshFunc).Param("fresh", ValNumber.Truth(true)),
                 Method("defineLib", DefineLibFunc).Params("libname", "path")
@@ -68,7 +71,7 @@ namespace ThingsEditor.Scripting.Modules
         public static void ClearImportCache()
         {
             CodeCache.Clear();
-            LibraryPathCache.Clear();
+            ValidLibrariesCache.Clear();
             ImportsCache.Clear();
             LibrariesMap.Clear();
             PopulateLibraries();
@@ -192,15 +195,16 @@ namespace ThingsEditor.Scripting.Modules
         private static string ResolveSingleLibraryFile(string path)
         {
             var resolvedPath = DiskUtils.ResolvePath(path, out var error);
+            if (resolvedPath == null) throw new RuntimeException(error);
             if (!resolvedPath.EndsWith(".ms")) resolvedPath += ".ms";
             var localPath = resolvedPath;
-            if (LibraryPathCache.TryGetValue(resolvedPath, out var absolutePath)) return absolutePath;
-            if (localPath == null) throw new RuntimeException(error);
+            if (ValidLibrariesCache.Contains(resolvedPath)) return resolvedPath;
             var disk = DiskController.Instance.GetDisk(ref localPath);
             if (disk == null) throw new RuntimeException($"Disk not found for path {resolvedPath}");
             var fi = disk.GetFileInfo(localPath);
             if (fi == null || fi.isDirectory) throw new RuntimeException($"Path {resolvedPath} is not a file");
-            return LibraryPathCache[localPath] = resolvedPath;
+            ValidLibrariesCache.Add(resolvedPath);
+            return resolvedPath;
         }
 
         /// <summary>
@@ -318,7 +322,7 @@ namespace ThingsEditor.Scripting.Modules
             return map;
         }
 
-        private static IntrinsicCode ImportFunction(bool isFresh, [CanBeNull] Func<Value> defaultResult)
+        private static IntrinsicCode ImportFunction(bool isFresh, bool isLazy, [CanBeNull] Func<Value> defaultResult)
         {
             return RecursiveMultiStepFunction((TAC.Context context, out Intrinsic.Result result) =>
             {
@@ -393,7 +397,7 @@ namespace ThingsEditor.Scripting.Modules
                         throw new RuntimeException($"Expected map in map-type 'from', got: {fromValue}");
                     if (isFresh) map = map.EvalCopy(context);
 
-                    result = ResolveMembersImports(requiredMembers, map, asAlias, null, intoMap);
+                    result = ResolveMembersImports(requiredMembers, MapExtractor(map), asAlias, null, intoMap);
                     return null;
                 }
 
@@ -402,14 +406,28 @@ namespace ThingsEditor.Scripting.Modules
                     // Resolve library path first
                     var fullLibPath = FindLib(context, fromValue.ToString());
 
-                    // non-fresh imports look up cache before loading
-                    if (!isFresh && ImportsCache.TryGetValue(fullLibPath, out var lib))
+                    if (!isFresh)
                     {
-                        result = ResolveMembersImports(requiredMembers, lib, asAlias, fromValue.ToString(),
-                            intoMap);
-                        return null;
+                        // non-fresh imports look up cache before loading
+                        if (ImportsCache.TryGetValue(fullLibPath, out var lib))
+                        {
+                            result = ResolveMembersImports(requiredMembers, MapExtractor(lib), asAlias,
+                                fromValue.ToString(),
+                                intoMap);
+                            return null;
+                        }
+
+                        if (isLazy)
+                        {
+                            result = ResolveMembersImports(requiredMembers, LazyImportExtractor(fullLibPath), asAlias,
+                                fromValue.ToString(),
+                                intoMap);
+                            return null;
+                        }
                     }
 
+                    PushImportHistory(fullLibPath);
+                    
                     // Loading library code
                     var code = LoadLib(fullLibPath, isFresh);
                     // Manually pushing call of the imported code to load it
@@ -422,8 +440,11 @@ namespace ThingsEditor.Scripting.Modules
                         // created by the import code) in Temp 0.
                         var importedValues = context.GetTemp(0) as ValMap;
                         if (!isFresh) ImportsCache[fullLibPath] = importedValues;
-                        result = ResolveMembersImports(requiredMembers, importedValues, asAlias,
+                        result = ResolveMembersImports(requiredMembers, MapExtractor(importedValues), asAlias,
                             fromValue.ToString(), intoMap);
+
+                        PopImportHistory(fullLibPath);
+                        
                         return null;
                     };
                 }
@@ -432,7 +453,8 @@ namespace ThingsEditor.Scripting.Modules
             });
         }
 
-        private static Intrinsic.Result ResolveMembersImports(Dictionary<string, string> requiredMembers, Value source,
+        private static Intrinsic.Result ResolveMembersImports(Dictionary<string, string> requiredMembers,
+            Func<string, Value> source,
             string asAlias, string defaultName, ValMap into)
         {
             var libName = asAlias ?? defaultName;
@@ -440,19 +462,19 @@ namespace ThingsEditor.Scripting.Modules
             {
                 if (asAlias == null && defaultName == null)
                     throw new RankException("No 'as' alias or imported members are defined");
-                TrySetMapValue(into, libName, source);
+                TrySetMapValue(into, libName, source(""));
             }
             else
             {
-                if (source is not ValMap map) throw new RuntimeException("Can't import members from non-map value");
+                // if (source is not ValMap map) throw new RuntimeException("Can't import members from non-map value");
                 foreach (var (name, alias) in requiredMembers)
                 {
-                    if (!map.TryGetValue(name, out var value))
-                        throw new RuntimeException($"Can't import missing member {name}");
-                    TrySetMapValue(into, alias, value);
+                    // if (!map.TryGetValue(name, out var value))
+                    //     throw new RuntimeException($"Can't import missing member {name}");
+                    TrySetMapValue(into, alias, source(name));
                 }
 
-                if (asAlias != null) TrySetMapValue(into, asAlias, source);
+                if (asAlias != null) TrySetMapValue(into, asAlias, source(""));
             }
 
             return Intrinsic.Result.Null;
@@ -481,6 +503,81 @@ namespace ThingsEditor.Scripting.Modules
             }
         }
 
+
+        private static Func<string, Value> MapExtractor(Value source) => key => GetOrThrow(source, key);
+
+        private static Value GetOrThrow(Value maybeMap, string key)
+        {
+            if (string.IsNullOrEmpty(key)) return maybeMap;
+            if (maybeMap is not ValMap map) throw new RuntimeException("Can't import members from non-map value");
+            if (!map.TryGetValue(key, out var value))
+                throw new RuntimeException($"Can't import missing member {key}");
+            return value;
+        }
+
+        private static Func<string, Value> LazyImportExtractor(string fullLibPath)
+        {
+            if (!LazyImportIntrinsicCache.TryGetValue(fullLibPath, out var map))
+            {
+                map = LazyImportIntrinsicCache[fullLibPath] = new Dictionary<string, ValFunction>();
+            }
+
+            return name =>
+            {
+                if (!map.TryGetValue(name, out var function))
+                {
+                    function = CreateLazyImportFunction(fullLibPath, name);
+                }
+
+                return function;
+            };
+        }
+
+        private static ValFunction CreateLazyImportFunction(string fullLibPath, string member)
+        {
+            var i = Intrinsic.Create("");
+            i.code = (context, partialResult) =>
+            {
+                if (partialResult != null)
+                {
+                    // When we're invoked with a partial result, it means that the import
+                    // function has finished, and stored its result (the values that were
+                    // created by the import code) in Temp 0.
+                    var importedValues = context.GetTemp(0) as ValMap;
+                    ImportsCache[fullLibPath] = importedValues;
+                    
+                    PopImportHistory(fullLibPath);
+
+                    return new Intrinsic.Result(importedValues);
+                }
+
+                if (ImportsCache.TryGetValue(fullLibPath, out var lib))
+                {
+                    return new Intrinsic.Result(GetOrThrow(lib, member));
+                }
+                
+                PushImportHistory(fullLibPath);
+                
+                // Loading library code
+                var code = LoadLib(fullLibPath, false);
+                // Manually pushing call of the imported code to load it
+                context.interpreter.vm.ManuallyPushCall(new ValFunction(code), new ValTemp(0));
+                return new Intrinsic.Result(UnsetParameter, false);
+            };
+            return i.GetFunc();
+        }
+
+        private static void PushImportHistory(string fullLibPath)
+        {
+            if (ImportsHistory.Contains(fullLibPath))
+                throw new RuntimeException($"Circular reference detected while importing \"{fullLibPath}\", try using Lazy imports");
+            ImportsHistory.Add(fullLibPath);
+        }
+        private static void PopImportHistory(string fullLibPath)
+        {
+            if (!ImportsHistory.Remove(fullLibPath))
+                throw new Exception("Popped library is not the same as the pushed one, this is backend issue and should never happen");
+        }
         #endregion
     }
 }

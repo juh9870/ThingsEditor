@@ -28,7 +28,7 @@ public class ThingsEditorMain : MonoBehaviour
 
     private void RunTests()
     {
-        // ScriptingManager.Reset();
+        ScriptingManager.Reset();
         var interpreter = ScriptingManager.NewInterpreter("import.fresh from(\"/sys/test\").into({});");
         interpreter.Run();
     }

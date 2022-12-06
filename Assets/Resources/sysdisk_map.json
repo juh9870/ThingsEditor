@@ -59,6 +59,14 @@
     "FullPath": "Assets/Resources/sysdisk/test/fs.ms",
     "ResourcesPath": "sysdisk/test/fs"
   },
+  "test/import/circular/a1.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/import/circular/a1.ms",
+    "ResourcesPath": "sysdisk/test/import/circular/a1"
+  },
+  "test/import/circular/a2.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/import/circular/a2.ms",
+    "ResourcesPath": "sysdisk/test/import/circular/a2"
+  },
   "test/import/index.ms": {
     "FullPath": "Assets/Resources/sysdisk/test/import/index.ms",
     "ResourcesPath": "sysdisk/test/import/index"
@@ -74,6 +82,10 @@
   "test/import/libc/index.ms": {
     "FullPath": "Assets/Resources/sysdisk/test/import/libc/index.ms",
     "ResourcesPath": "sysdisk/test/import/libc/index"
+  },
+  "test/import/libDynamic.ms": {
+    "FullPath": "Assets/Resources/sysdisk/test/import/libDynamic.ms",
+    "ResourcesPath": "sysdisk/test/import/libDynamic"
   },
   "test/index.ms": {
     "FullPath": "Assets/Resources/sysdisk/test/index.ms",
